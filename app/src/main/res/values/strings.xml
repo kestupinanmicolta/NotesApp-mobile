@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mis Notas</string>
+
+    <!-- Auth -->
+    <string name="login_title">Mis Notas</string>
+    <string name="register_title">Crear Cuenta</string>
+    <string name="login_subtitle">Ingresa para continuar</string>
+    <string name="register_subtitle">Completa la información para registrarte</string>
+    <string name="username">Usuario</string>
+    <string name="password">Contraseña</string>
+    <string name="email">Correo electrónico</string>
+    <string name="confirm_password">Confirmar contraseña</string>
+    <string name="btn_login">INICIAR SESIÓN</string>
+    <string name="btn_register">REGISTRARSE</string>
+    <string name="no_account">¿No tienes cuenta? Regístrate</string>
+    <string name="has_account">¿Ya tienes cuenta? Inicia sesión</string>
+
+    <!-- Notes -->
+    <string name="my_notes">Mis Notas</string>
+    <string name="new_note">Nueva Nota</string>
+    <string name="edit_note">Editar Nota</string>
+    <string name="note_title">Título</string>
+    <string name="note_content">Contenido</string>
+    <string name="note_hint">Escribe aquí tu nota...</string>
+    <string name="btn_save">GUARDAR</string>
+    <string name="btn_update">Actualizar</string>
+    <string name="btn_logout">CERRAR SESIÓN</string>
+    <string name="add_note">Agregar Nota</string>
+    <string name="search_hint">Buscar nota...</string>
+
+    <!-- Messages -->
+    <string name="fill_fields">Por favor completa todos los campos</string>
+    <string name="passwords_match">Las contraseñas no coinciden</string>
+    <string name="login_success">Inicio de sesión exitoso</string>
+    <string name="register_success">Registro exitoso</string>
+    <string name="note_saved">Nota guardada</string>
+    <string name="note_updated">Nota actualizada</string>
+    <string name="title_required">El título es obligatorio</string>
+    <string name="delete_note">Eliminar Nota</string>
+    <string name="confirm_delete">¿Estás seguro de eliminar \"%s\"?</string>
+    <string name="delete">Eliminar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="logout_title">Cerrar Sesión</string>
+    <string name="logout_confirm">¿Estás seguro que deseas cerrar sesión?</string>
+    <string name="empty_title">Aquí aparecerán tus notas</string>
+    <string name="empty_subtitle">Crea tu primera nota para comenzar</string>
+    <string name="optional">Opcional</string>
+
+    <!-- Sync -->
+    <string name="saved_offline">Guardado sin conexión. Se sincronizará automáticamente.</string>
+    <string name="sync_pending">Hay %d nota(s) pendientes de sincronizar</string>
+    <string name="sync_complete">Sincronización completada</string>
+    <string name="sync_error">Error al sincronizar. Se reintentará automáticamente.</string>
+    <string name="offline_mode">Modo offline</string>
+</resources>
