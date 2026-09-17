@@ -5,6 +5,7 @@ import android.util.Log
 import com.notes.mobile.data.local.NoteDao
 import com.notes.mobile.data.local.NoteEntity
 import com.notes.mobile.data.remote.*
+import com.notes.mobile.data.session.SessionExpiredException
 import com.notes.mobile.data.sync.SyncManager
 import com.google.gson.Gson
 
@@ -127,6 +128,9 @@ class NotesRepository(
                 Result.success(localNotes)
             } else {
                 Log.e(TAG, "API error: ${response.code()}")
+                if (response.code() == 401) {
+                    return Result.failure(SessionExpiredException())
+                }
                 val localNotes = if (userId != -1L) noteDao.getNotesByUserId(userId) else emptyList()
                 if (localNotes.isNotEmpty()) {
                     Result.success(localNotes)
@@ -157,6 +161,8 @@ class NotesRepository(
                 val note = response.body()!!.toEntity()
                 noteDao.insertNote(note)
                 Result.success(note)
+            } else if (response.code() == 401) {
+                Result.failure(SessionExpiredException())
             } else {
                 saveOffline(title, content)
             }
@@ -178,6 +184,8 @@ class NotesRepository(
                 val note = response.body()!!.toEntity()
                 noteDao.insertNote(note)
                 Result.success(note)
+            } else if (response.code() == 401) {
+                Result.failure(SessionExpiredException())
             } else {
                 saveOfflineUpdate(id, title, content)
             }
@@ -202,6 +210,8 @@ class NotesRepository(
                 // Ya no existe en el server -> limpiar local
                 noteDao.deleteNoteById(id)
                 Result.success(Unit)
+            } else if (response.code() == 401) {
+                Result.failure(SessionExpiredException())
             } else {
                 markDeletedOffline(id)
             }

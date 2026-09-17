@@ -7,22 +7,25 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.notes.mobile.NotesApp
 import com.notes.mobile.R
 import com.notes.mobile.data.local.NoteEntity
+import com.notes.mobile.data.remote.ApiClient
 import com.notes.mobile.data.sync.SyncManager
 import com.notes.mobile.databinding.ActivityNotesListBinding
+import com.notes.mobile.ui.AppViewModelFactory
 import com.notes.mobile.ui.adapter.NotesAdapter
 import com.notes.mobile.ui.auth.LoginActivity
-import kotlinx.coroutines.launch
+import com.notes.mobile.ui.session.AuthState
+import com.notes.mobile.ui.session.SessionViewModel
 
 class NotesListActivity : AppCompatActivity() {
 
     private val TAG = "NotesListActivity"
     private lateinit var binding: ActivityNotesListBinding
-    private val repository by lazy { NotesApp.instance.repository }
+    private lateinit var notesViewModel: NotesViewModel
+    private lateinit var sessionViewModel: SessionViewModel
     private lateinit var adapter: NotesAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,9 +34,26 @@ class NotesListActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         Log.d(TAG, "onCreate - Loading notes")
+        val factory = AppViewModelFactory(application)
+        notesViewModel = ViewModelProvider(this, factory).get(NotesViewModel::class.java)
+        sessionViewModel = ViewModelProvider(this, factory).get(SessionViewModel::class.java)
+
         setupRecyclerView()
         setupListeners()
-        loadNotes()
+        observeViewModels()
+
+        // Guard: sin sesion no hay acceso a esta pantalla
+        if (!ApiClient.isLoggedIn(this)) {
+            goLogin()
+            return
+        }
+        sessionViewModel.loadSession()
+        notesViewModel.loadLocal()
+        if (SyncManager.isOnline(this)) {
+            notesViewModel.refresh()
+        } else {
+            binding.progressBar.visibility = View.GONE
+        }
     }
 
     private fun setupRecyclerView() {
@@ -60,7 +80,7 @@ class NotesListActivity : AppCompatActivity() {
         }
 
         binding.swipeRefresh.setOnRefreshListener {
-            loadNotes()
+            notesViewModel.refresh()
         }
 
         binding.btnLogout.setOnClickListener {
@@ -68,79 +88,62 @@ class NotesListActivity : AppCompatActivity() {
                 .setTitle(getString(R.string.logout_title))
                 .setMessage(getString(R.string.logout_confirm))
                 .setPositiveButton(getString(R.string.yes)) { _, _ ->
-                    lifecycleScope.launch {
-                        repository.clearLocalCache()
-                        repository.logout()
-                        startActivity(Intent(this@NotesListActivity, LoginActivity::class.java))
-                        finishAffinity()
-                    }
+                    sessionViewModel.logout()
                 }
                 .setNegativeButton(getString(R.string.no), null)
                 .show()
         }
     }
 
-    private fun loadNotes() {
-        binding.emptyView.visibility = View.GONE
+    private fun observeViewModels() {
+        sessionViewModel.authState.observe(this) { state ->
+            when (state) {
+                is AuthState.Authenticated -> {
+                    binding.tvGreeting.text =
+                        getString(R.string.hello_user, state.username ?: "")
+                }
+                is AuthState.Unauthenticated -> goLogin()
+            }
+        }
 
-        lifecycleScope.launch {
-            val userId = com.notes.mobile.data.remote.ApiClient.getUserId(this@NotesListActivity)
-            val localNotes = if (userId != -1L) repository.getNotesDirect() else emptyList()
-
-            if (localNotes.isNotEmpty()) {
+        notesViewModel.notes.observe(this) { notes ->
+            if (notes.isNotEmpty()) {
                 binding.emptyView.visibility = View.GONE
                 binding.recyclerView.visibility = View.VISIBLE
-                adapter.submitList(localNotes)
-                val pendingCount = localNotes.count { it.isPendingSync }
-                if (pendingCount > 0) showSyncBanner(pendingCount) else hideSyncBanner()
+                adapter.submitList(notes)
             } else {
                 binding.emptyView.visibility = View.VISIBLE
                 binding.recyclerView.visibility = View.GONE
             }
-
             binding.progressBar.visibility = View.GONE
             binding.swipeRefresh.isRefreshing = false
         }
 
-        if (SyncManager.isOnline(this)) {
-            syncInBackground()
-        } else {
-            binding.progressBar.visibility = View.GONE
+        notesViewModel.pendingCount.observe(this) { count ->
+            if (count > 0) showSyncBanner(count) else hideSyncBanner()
         }
-    }
 
-    private fun syncInBackground() {
-        lifecycleScope.launch {
-            try {
-                val pending = repository.getPendingSyncCount()
-                if (pending > 0) {
-                    showSyncBanner(pending)
-                    val synced = repository.syncPendingNotes()
-                    Log.d(TAG, "Background sync: $synced notes synced")
-                    if (synced > 0) {
-                        hideSyncBanner()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Background sync failed: ${e.message}")
+        notesViewModel.loading.observe(this) { loading ->
+            binding.progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+            if (!loading) binding.swipeRefresh.isRefreshing = false
+        }
+
+        notesViewModel.error.observe(this) { message ->
+            if (message != null) {
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+                notesViewModel.consumeError()
             }
+        }
 
-            try {
-                val result = repository.getNotes()
-                result.onSuccess { notes ->
-                    Log.d(TAG, "API refresh: ${notes.size} notes")
-                    if (notes.isNotEmpty()) {
-                        binding.emptyView.visibility = View.GONE
-                        binding.recyclerView.visibility = View.VISIBLE
-                        adapter.submitList(notes)
-                    }
-                    val pendingCount = notes.count { it.isPendingSync }
-                    if (pendingCount > 0) showSyncBanner(pendingCount) else hideSyncBanner()
-                }.onFailure { e ->
-                    Log.e(TAG, "API refresh failed: ${e.message}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "API refresh error: ${e.message}")
+        notesViewModel.sessionExpired.observe(this) { expired ->
+            if (expired) {
+                notesViewModel.consumeSessionExpired()
+                Toast.makeText(
+                    this,
+                    getString(R.string.session_expired),
+                    Toast.LENGTH_SHORT
+                ).show()
+                sessionViewModel.logout()
             }
         }
     }
@@ -166,20 +169,28 @@ class NotesListActivity : AppCompatActivity() {
     }
 
     private fun deleteNote(note: NoteEntity) {
-        lifecycleScope.launch {
-            val result = repository.deleteNote(note.id)
-            result.onSuccess {
-                if (!SyncManager.isOnline(this@NotesListActivity)) {
-                    Toast.makeText(this@NotesListActivity, getString(R.string.saved_offline), Toast.LENGTH_SHORT).show()
-                }
-            }
-            loadNotes()
+        notesViewModel.deleteNote(note.id)
+        if (!SyncManager.isOnline(this)) {
+            Toast.makeText(this, getString(R.string.saved_offline), Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun goLogin() {
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 
     override fun onResume() {
         super.onResume()
-        loadNotes()
+        if (!ApiClient.isLoggedIn(this)) {
+            goLogin()
+            return
+        }
+        sessionViewModel.loadSession()
+        notesViewModel.loadLocal()
+        if (SyncManager.isOnline(this)) {
+            notesViewModel.refresh()
+        }
     }
 
     override fun onDestroy() {

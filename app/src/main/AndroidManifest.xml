@@ -9,9 +9,13 @@
     <!-- Permiso para conocer el estado de la conexión -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Ubicación: solo se solicita al adjuntarla a una nota (bajo demanda) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <application
         android:name=".NotesApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@android:drawable/ic_menu_edit"
         android:label="@string/app_name"
         android:supportsRtl="true"

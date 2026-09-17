@@ -1,7 +1,10 @@
 package com.notes.mobile.data.remote
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.notes.mobile.data.local.NotesDatabase
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -14,7 +17,8 @@ object ApiClient {
 
     private const val TAG = "ApiClient"
     private const val BASE_URL = "http://192.168.1.10:8081/"
-    private const val PREFS_NAME = "auth_prefs"
+    private const val LEGACY_PREFS_NAME = "auth_prefs"
+    private const val SECURE_PREFS_NAME = "secure_auth_prefs"
     private const val TOKEN_KEY = "jwt_token"
     private const val USER_ID_KEY = "user_id"
     private const val USERNAME_KEY = "username"
@@ -62,43 +66,77 @@ object ApiClient {
             .build()
     }
 
+    /**
+     * Almacenamiento seguro: EncryptedSharedPreferences (AES256, Keystore).
+     * Migra una sola vez desde las prefs planas anteriores y las limpia.
+     * Si el Keystore no esta disponible, usa prefs planas como fallback.
+     */
+    private fun securePrefs(context: Context): SharedPreferences {
+        try {
+            val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            val secure = EncryptedSharedPreferences.create(
+                context,
+                SECURE_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            migrateLegacyPrefs(context, secure)
+            return secure
+        } catch (e: Exception) {
+            Log.e(TAG, "Secure storage unavailable, using plain prefs: ${e.message}")
+            return context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+        }
+    }
+
+    private fun migrateLegacyPrefs(context: Context, secure: SharedPreferences) {
+        val legacy = context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+        if (!legacy.contains(TOKEN_KEY)) return
+        if (!secure.contains(TOKEN_KEY)) {
+            secure.edit()
+                .putString(TOKEN_KEY, legacy.getString(TOKEN_KEY, null))
+                .putLong(USER_ID_KEY, legacy.getLong(USER_ID_KEY, -1))
+                .putString(USERNAME_KEY, legacy.getString(USERNAME_KEY, null))
+                .apply()
+            Log.d(TAG, "Session migrated to encrypted prefs")
+        }
+        legacy.edit().clear().apply()
+    }
+
     fun saveToken(context: Context, token: String) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(TOKEN_KEY, token).apply()
-        Log.d(TAG, "Token saved")
+        securePrefs(context).edit().putString(TOKEN_KEY, token).apply()
+        Log.d(TAG, "Token saved (encrypted)")
     }
 
     fun saveUserId(context: Context, userId: Long) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putLong(USER_ID_KEY, userId).apply()
+        securePrefs(context).edit().putLong(USER_ID_KEY, userId).apply()
         Log.d(TAG, "UserId saved: $userId")
     }
 
     fun saveUsername(context: Context, username: String) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(USERNAME_KEY, username).apply()
+        securePrefs(context).edit().putString(USERNAME_KEY, username).apply()
     }
 
     fun getUserId(context: Context): Long {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val userId = prefs.getLong(USER_ID_KEY, -1)
+        val userId = securePrefs(context).getLong(USER_ID_KEY, -1)
         Log.d(TAG, "Getting userId: $userId")
         return userId
     }
 
     fun getUsername(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(USERNAME_KEY, null)
+        return securePrefs(context).getString(USERNAME_KEY, null)
     }
 
     fun getToken(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(TOKEN_KEY, null)
+        return securePrefs(context).getString(TOKEN_KEY, null)
     }
 
     fun clearToken(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().clear().apply()
+        securePrefs(context).edit().clear().apply()
+        context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().clear().apply()
         Log.d(TAG, "All auth data cleared")
     }
 

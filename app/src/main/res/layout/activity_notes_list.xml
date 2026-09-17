@@ -48,6 +48,15 @@
                 android:textColor="@color/white"
                 android:textSize="26sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvGreeting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:alpha="0.9"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <!-- Sync banner -->

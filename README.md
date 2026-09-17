@@ -52,4 +52,21 @@ Requisitos: Android Studio (JDK 17), backend corriendo en `192.168.1.10:8081`, d
 .\gradlew.bat assembleDebug   # si hay poco RAM: .\gradlew.bat --no-daemon assembleDebug
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. Permisos: `INTERNET`, `ACCESS_NETWORK_STATE`. La sesión persiste (token en `SharedPreferences`); Splash redirige a lista o login.
+APK: `app/build/outputs/apk/debug/app-debug.apk`. Permisos: `INTERNET`, `ACCESS_NETWORK_STATE`,
+`ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION` (solo se solicitan al adjuntar ubicación a una nota).
+La sesión persiste (token cifrado); Splash redirige a lista o login.
+
+## Estado global, seguridad y recursos
+
+- **Estado global**: `SessionViewModel` (sesión: autenticado/no autenticado) y `NotesViewModel`
+  (notas, pendientes, carga, errores) exponen `LiveData`; las Activities solo observan
+  (`ui/AppViewModelFactory.kt`).
+- **Token cifrado**: `EncryptedSharedPreferences` (AES256 + Keystore) con migración
+  automática desde las prefs planas; `allowBackup="false"` en el manifest.
+- **Guards + 401**: `NotesList`/`NoteDetail` redirigen a login sin sesión; un 401 del
+  backend publica `SessionExpiredException` → logout (limpia caché, cancela sync y
+  ubicación) → login. El header muestra "Hola, {usuario}".
+- **Ubicación bajo demanda**: en el detalle, "Agregar ubicación actual" pide
+  `ACCESS_FINE_LOCATION` solo al pulsarse (con rationale si aplica); `LocationHelper`
+  pide un único fix (sin tracking) con timeout de 15 s y `cancelAll()` en `onStop`
+  y en el logout para ahorrar batería.

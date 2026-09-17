@@ -49,6 +49,20 @@
     <string name="empty_subtitle">Crea tu primera nota para comenzar</string>
     <string name="optional">Opcional</string>
 
+    <!-- Session / personalization -->
+    <string name="hello_user">Hola, %1$s</string>
+    <string name="session_expired">Sesión expirada, inicia sesión de nuevo</string>
+
+    <!-- Location -->
+    <string name="location_title">Ubicación</string>
+    <string name="location_empty">Sin ubicación adjunta</string>
+    <string name="btn_attach_location">AGREGAR UBICACIÓN ACTUAL</string>
+    <string name="btn_clear_location">Quitar</string>
+    <string name="location_searching">Obteniendo ubicación...</string>
+    <string name="location_unavailable">No se pudo obtener la ubicación</string>
+    <string name="location_rationale">Necesitamos tu ubicación solo para adjuntarla a esta nota cuando lo pidas.</string>
+    <string name="permission_denied">Permiso denegado: no se puede obtener la ubicación</string>
+
     <!-- Sync -->
     <string name="saved_offline">Guardado sin conexión. Se sincronizará automáticamente.</string>
     <string name="sync_pending">Hay %d nota(s) pendientes de sincronizar</string>
