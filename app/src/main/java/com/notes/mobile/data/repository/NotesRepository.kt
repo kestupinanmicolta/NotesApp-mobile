@@ -23,7 +23,8 @@ class NotesRepository(
             val errorBody = response.errorBody()?.string()
             if (errorBody != null) {
                 val error = gson.fromJson(errorBody, ErrorResponse::class.java)
-                error?.message ?: error?.error ?: "Error del servidor"
+                val message = error?.message ?: error?.error ?: "Error del servidor"
+                sanitizeServerMessage(message)
             } else {
                 "Error del servidor: ${response.code()}"
             }
@@ -32,17 +33,36 @@ class NotesRepository(
         }
     }
 
-    suspend fun login(username: String, password: String): Result<String> {
+    /**
+     * El backend puede devolver texto técnico (SQL/Hibernate) ante fallos
+     * inesperados. Eso nunca debe llegar al usuario: se muestra un mensaje
+     * genérico en su lugar. Los mensajes amigables del backend pasan intactos.
+     */
+    private fun sanitizeServerMessage(message: String): String {
+        val technical = listOf(
+            "could not execute", "statement", "constraint", "duplicate",
+            "sql", "hibernate", "field", "column", "exception",
+            "nullpointer", "caused by", "at java.", "at org.",
+            "jdbc", "query", "table", "error inesperado:"
+        )
+        return if (technical.any { message.contains(it, ignoreCase = true) }) {
+            "Ocurrió un error inesperado. Inténtalo de nuevo más tarde."
+        } else {
+            message
+        }
+    }
+
+    suspend fun login(email: String, password: String): Result<String> {
         return try {
-            Log.d(TAG, "Attempting login for user: $username")
-            val response = api.login(AuthRequest(username, password))
+            Log.d(TAG, "Attempting login for user: $email")
+            val response = api.login(AuthRequest(email, password))
             if (response.isSuccessful) {
                 val body = response.body()!!
                 Log.d(TAG, "Login successful. Token: ${body.token?.take(20)}... | userId: ${body.userId}")
                 body.token?.let {
                     ApiClient.saveToken(context, it)
                     body.userId?.let { uid -> ApiClient.saveUserId(context, uid) }
-                    ApiClient.saveUsername(context, username)
+                    ApiClient.saveEmail(context, email)
                     Result.success(it)
                 } ?: Result.failure(Exception(body.message ?: "Error al iniciar sesión"))
             } else {
@@ -55,17 +75,17 @@ class NotesRepository(
         }
     }
 
-    suspend fun register(username: String, password: String, email: String): Result<String> {
+    suspend fun register(email: String, password: String): Result<String> {
         return try {
-            Log.d(TAG, "Attempting register for user: $username")
-            val response = api.register(AuthRequest(username, password, email))
+            Log.d(TAG, "Attempting register for user: $email")
+            val response = api.register(AuthRequest(email, password))
             if (response.isSuccessful) {
                 val body = response.body()!!
                 Log.d(TAG, "Register successful. userId: ${body.userId}")
                 body.token?.let {
                     ApiClient.saveToken(context, it)
                     body.userId?.let { uid -> ApiClient.saveUserId(context, uid) }
-                    ApiClient.saveUsername(context, username)
+                    ApiClient.saveEmail(context, email)
                     Result.success(it)
                 } ?: Result.failure(Exception(body.message ?: "Error al registrarse"))
             } else {
@@ -87,8 +107,8 @@ class NotesRepository(
 
     suspend fun getNotes(): Result<List<NoteEntity>> {
         var userId = ApiClient.getUserId(context)
-        val username = ApiClient.getUsername(context)
-        Log.d(TAG, "getNotes() called | userId: $userId | username: $username | online: ${SyncManager.isOnline(context)}")
+        val email = ApiClient.getEmail(context)
+        Log.d(TAG, "getNotes() called | userId: $userId | email: $email | online: ${SyncManager.isOnline(context)}")
 
         if (!SyncManager.isOnline(context)) {
             Log.d(TAG, "Offline - loading from Room")
@@ -104,7 +124,7 @@ class NotesRepository(
             val response = api.getNotes()
             if (response.isSuccessful) {
                 val notes = response.body()!!
-                Log.d(TAG, "API returned ${notes.size} notes for user $username")
+                Log.d(TAG, "API returned ${notes.size} notes for user $email")
 
                 if (notes.isNotEmpty() && userId == -1L) {
                     userId = notes.first().userId
@@ -149,14 +169,14 @@ class NotesRepository(
         }
     }
 
-    suspend fun createNote(title: String, content: String): Result<NoteEntity> {
+    suspend fun createNote(title: String, content: String, latitude: Double? = null, longitude: Double? = null, locationName: String? = null): Result<NoteEntity> {
         if (!SyncManager.isOnline(context)) {
             Log.d(TAG, "Offline - saving create locally")
-            return saveOffline(title, content)
+            return saveOffline(title, content, latitude, longitude, locationName)
         }
 
         return try {
-            val response = api.createNote(NoteRequest(title, content))
+            val response = api.createNote(NoteRequest(title, content, latitude, longitude, locationName))
             if (response.isSuccessful) {
                 val note = response.body()!!.toEntity()
                 noteDao.insertNote(note)
@@ -164,22 +184,22 @@ class NotesRepository(
             } else if (response.code() == 401) {
                 Result.failure(SessionExpiredException())
             } else {
-                saveOffline(title, content)
+                saveOffline(title, content, latitude, longitude, locationName)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Offline create: ${e.message}")
-            saveOffline(title, content)
+            saveOffline(title, content, latitude, longitude, locationName)
         }
     }
 
-    suspend fun updateNote(id: Long, title: String, content: String): Result<NoteEntity> {
+    suspend fun updateNote(id: Long, title: String, content: String, latitude: Double? = null, longitude: Double? = null, locationName: String? = null): Result<NoteEntity> {
         if (!SyncManager.isOnline(context)) {
             Log.d(TAG, "Offline - saving update locally")
-            return saveOfflineUpdate(id, title, content)
+            return saveOfflineUpdate(id, title, content, latitude, longitude, locationName)
         }
 
         return try {
-            val response = api.updateNote(id, NoteRequest(title, content))
+            val response = api.updateNote(id, NoteRequest(title, content, latitude, longitude, locationName))
             if (response.isSuccessful) {
                 val note = response.body()!!.toEntity()
                 noteDao.insertNote(note)
@@ -187,11 +207,11 @@ class NotesRepository(
             } else if (response.code() == 401) {
                 Result.failure(SessionExpiredException())
             } else {
-                saveOfflineUpdate(id, title, content)
+                saveOfflineUpdate(id, title, content, latitude, longitude, locationName)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Offline update: ${e.message}")
-            saveOfflineUpdate(id, title, content)
+            saveOfflineUpdate(id, title, content, latitude, longitude, locationName)
         }
     }
 
@@ -221,7 +241,7 @@ class NotesRepository(
         }
     }
 
-    private suspend fun saveOffline(title: String, content: String): Result<NoteEntity> {
+    private suspend fun saveOffline(title: String, content: String, latitude: Double? = null, longitude: Double? = null, locationName: String? = null): Result<NoteEntity> {
         val userId = ApiClient.getUserId(context)
         val localId = System.currentTimeMillis()
         val entity = NoteEntity(
@@ -231,6 +251,9 @@ class NotesRepository(
             userId = if (userId != -1L) userId else 0,
             createdAt = "",
             updatedAt = "",
+            latitude = latitude,
+            longitude = longitude,
+            locationName = locationName,
             isPendingSync = true,
             isDeleted = false
         )
@@ -239,7 +262,7 @@ class NotesRepository(
         return Result.success(entity)
     }
 
-    private suspend fun saveOfflineUpdate(id: Long, title: String, content: String): Result<NoteEntity> {
+    private suspend fun saveOfflineUpdate(id: Long, title: String, content: String, latitude: Double? = null, longitude: Double? = null, locationName: String? = null): Result<NoteEntity> {
         val existing = noteDao.getNoteById(id)
         val entity = NoteEntity(
             id = id,
@@ -248,6 +271,9 @@ class NotesRepository(
             userId = existing?.userId ?: ApiClient.getUserId(context),
             createdAt = existing?.createdAt ?: "",
             updatedAt = "",
+            latitude = latitude,
+            longitude = longitude,
+            locationName = locationName,
             isPendingSync = true,
             isDeleted = false
         )
@@ -303,6 +329,9 @@ class NotesRepository(
         userId = userId,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        latitude = latitude,
+        longitude = longitude,
+        locationName = locationName,
         isPendingSync = false,
         isDeleted = false
     )

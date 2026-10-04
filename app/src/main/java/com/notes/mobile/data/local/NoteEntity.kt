@@ -12,6 +12,9 @@ data class NoteEntity(
     val userId: Long = 0,
     val createdAt: String = "",
     val updatedAt: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationName: String? = null,
     val isPendingSync: Boolean = false,
     val isDeleted: Boolean = false
 )

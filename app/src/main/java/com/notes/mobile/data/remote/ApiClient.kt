@@ -16,12 +16,14 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
 
     private const val TAG = "ApiClient"
-    private const val BASE_URL = "http://192.168.1.10:8081/"
+    // Emulador: 10.0.2.2 apunta al localhost del PC anfitrión.
+    // Dispositivo físico: usa la IP LAN del PC (misma red Wi-Fi), p. ej. http://192.168.1.X:8081/
+    private const val BASE_URL = "http://10.0.2.2:8081/"
     private const val LEGACY_PREFS_NAME = "auth_prefs"
     private const val SECURE_PREFS_NAME = "secure_auth_prefs"
     private const val TOKEN_KEY = "jwt_token"
     private const val USER_ID_KEY = "user_id"
-    private const val USERNAME_KEY = "username"
+    private const val EMAIL_KEY = "email"
 
     private var retrofit: Retrofit? = null
     private var api: NotesApi? = null
@@ -98,7 +100,7 @@ object ApiClient {
             secure.edit()
                 .putString(TOKEN_KEY, legacy.getString(TOKEN_KEY, null))
                 .putLong(USER_ID_KEY, legacy.getLong(USER_ID_KEY, -1))
-                .putString(USERNAME_KEY, legacy.getString(USERNAME_KEY, null))
+                .putString(EMAIL_KEY, legacy.getString(EMAIL_KEY, null) ?: legacy.getString("username", null))
                 .apply()
             Log.d(TAG, "Session migrated to encrypted prefs")
         }
@@ -115,8 +117,8 @@ object ApiClient {
         Log.d(TAG, "UserId saved: $userId")
     }
 
-    fun saveUsername(context: Context, username: String) {
-        securePrefs(context).edit().putString(USERNAME_KEY, username).apply()
+    fun saveEmail(context: Context, email: String) {
+        securePrefs(context).edit().putString(EMAIL_KEY, email).apply()
     }
 
     fun getUserId(context: Context): Long {
@@ -125,8 +127,9 @@ object ApiClient {
         return userId
     }
 
-    fun getUsername(context: Context): String? {
-        return securePrefs(context).getString(USERNAME_KEY, null)
+    fun getEmail(context: Context): String? {
+        return securePrefs(context).getString(EMAIL_KEY, null)
+            ?: securePrefs(context).getString("username", null)
     }
 
     fun getToken(context: Context): String? {

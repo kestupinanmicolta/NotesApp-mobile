@@ -1,21 +1,23 @@
 package com.notes.mobile.data.remote
 
 data class AuthRequest(
-    val username: String,
-    val password: String,
-    val email: String? = null
+    val email: String,
+    val password: String
 )
 
 data class AuthResponse(
     val token: String?,
-    val username: String?,
+    val email: String?,
     val message: String?,
     val userId: Long? = null
 )
 
 data class NoteRequest(
     val title: String,
-    val content: String
+    val content: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationName: String? = null
 )
 
 data class NoteResponse(
@@ -23,6 +25,9 @@ data class NoteResponse(
     val title: String,
     val content: String,
     val userId: Long,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationName: String? = null,
     val createdAt: String,
     val updatedAt: String
 )

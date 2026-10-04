@@ -94,7 +94,7 @@ object SyncManager {
                             }
                         }
                     } else if (note.id > 1000000) {
-                        val response = api.createNote(NoteRequest(note.title, note.content))
+                        val response = api.createNote(NoteRequest(note.title, note.content, note.latitude, note.longitude, note.locationName))
                         if (response.isSuccessful) {
                             val serverNote = response.body()!!
                             noteDao.deleteNoteById(note.id)
@@ -108,7 +108,7 @@ object SyncManager {
                             Log.d(TAG, "Synced create for note ${note.id} -> server id ${serverNote.id}")
                         }
                     } else {
-                        val response = api.updateNote(note.id, NoteRequest(note.title, note.content))
+                        val response = api.updateNote(note.id, NoteRequest(note.title, note.content, note.latitude, note.longitude, note.locationName))
                         if (response.isSuccessful) {
                             noteDao.markAsSynced(note.id)
                             syncedCount++

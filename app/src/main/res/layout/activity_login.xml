@@ -95,7 +95,7 @@
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="40dp" />
 
-            <!-- Username field -->
+            <!-- Email field -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -109,19 +109,19 @@
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_person"
+                    android:src="@drawable/ic_email"
                     android:layout_marginEnd="12dp" />
 
                 <EditText
-                    android:id="@+id/etUsername"
+                    android:id="@+id/etEmail"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:background="@null"
-                    android:hint="@string/username"
+                    android:hint="@string/email"
                     android:textColorHint="@color/textHint"
                     android:textColor="@color/textPrimary"
                     android:textSize="16sp"
-                    android:inputType="text"
+                    android:inputType="textEmailAddress"
                     android:singleLine="true"
                     android:layout_marginStart="4dp" />
             </LinearLayout>

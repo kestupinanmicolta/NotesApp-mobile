@@ -3,13 +3,13 @@ package com.notes.mobile.ui.auth
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.notes.mobile.NotesApp
 import com.notes.mobile.R
 import com.notes.mobile.databinding.ActivityRegisterBinding
 import com.notes.mobile.data.sync.SyncWorker
+import com.notes.mobile.ui.common.Dialogs
 import com.notes.mobile.ui.notes.NotesListActivity
 import kotlinx.coroutines.launch
 
@@ -46,22 +46,21 @@ class RegisterActivity : AppCompatActivity() {
         }
 
         binding.btnRegister.setOnClickListener {
-            val username = binding.etUsername.text.toString().trim()
             val email = binding.etEmail.text.toString().trim()
             val password = binding.etPassword.text.toString().trim()
             val confirmPassword = binding.etConfirmPassword.text.toString().trim()
 
-            if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, getString(R.string.fill_fields), Toast.LENGTH_SHORT).show()
+            if (email.isEmpty() || password.isEmpty()) {
+                Dialogs.error(this, getString(R.string.fill_fields))
                 return@setOnClickListener
             }
 
             if (password != confirmPassword) {
-                Toast.makeText(this, getString(R.string.passwords_match), Toast.LENGTH_SHORT).show()
+                Dialogs.error(this, getString(R.string.passwords_match))
                 return@setOnClickListener
             }
 
-            registerUser(username, password, email)
+            registerUser(email, password)
         }
 
         binding.tvLogin.setOnClickListener {
@@ -69,22 +68,23 @@ class RegisterActivity : AppCompatActivity() {
         }
     }
 
-    private fun registerUser(username: String, password: String, email: String) {
+    private fun registerUser(email: String, password: String) {
         binding.progressBar.visibility = android.view.View.VISIBLE
         binding.btnRegister.isEnabled = false
 
         lifecycleScope.launch {
-            val result = repository.register(username, password, email)
+            val result = repository.register(email, password)
             binding.progressBar.visibility = android.view.View.GONE
             binding.btnRegister.isEnabled = true
 
             result.onSuccess {
                 SyncWorker.schedulePeriodicSync(this@RegisterActivity)
-                Toast.makeText(this@RegisterActivity, getString(R.string.register_success), Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this@RegisterActivity, NotesListActivity::class.java))
-                finishAffinity()
+                Dialogs.success(this@RegisterActivity, getString(R.string.register_success)) {
+                    startActivity(Intent(this@RegisterActivity, NotesListActivity::class.java))
+                    finishAffinity()
+                }
             }.onFailure { e ->
-                Toast.makeText(this@RegisterActivity, e.message, Toast.LENGTH_SHORT).show()
+                Dialogs.error(this@RegisterActivity, e.message)
             }
         }
     }

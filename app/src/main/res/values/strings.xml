@@ -7,7 +7,6 @@
     <string name="register_title">Crear Cuenta</string>
     <string name="login_subtitle">Ingresa para continuar</string>
     <string name="register_subtitle">Completa la información para registrarte</string>
-    <string name="username">Usuario</string>
     <string name="password">Contraseña</string>
     <string name="email">Correo electrónico</string>
     <string name="confirm_password">Confirmar contraseña</string>
@@ -24,14 +23,17 @@
     <string name="note_content">Contenido</string>
     <string name="note_hint">Escribe aquí tu nota...</string>
     <string name="btn_save">GUARDAR</string>
-    <string name="btn_update">Actualizar</string>
     <string name="btn_logout">CERRAR SESIÓN</string>
     <string name="add_note">Agregar Nota</string>
-    <string name="search_hint">Buscar nota...</string>
 
     <!-- Messages -->
     <string name="fill_fields">Por favor completa todos los campos</string>
     <string name="passwords_match">Las contraseñas no coinciden</string>
+    <string name="error_title">No se pudo completar</string>
+    <string name="success_title">Listo</string>
+    <string name="info_title">Aviso</string>
+    <string name="error_unexpected">Ocurrió un error inesperado. Inténtalo de nuevo más tarde.</string>
+    <string name="accept">Aceptar</string>
     <string name="login_success">Inicio de sesión exitoso</string>
     <string name="register_success">Registro exitoso</string>
     <string name="note_saved">Nota guardada</string>
@@ -47,15 +49,18 @@
     <string name="logout_confirm">¿Estás seguro que deseas cerrar sesión?</string>
     <string name="empty_title">Aquí aparecerán tus notas</string>
     <string name="empty_subtitle">Crea tu primera nota para comenzar</string>
-    <string name="optional">Opcional</string>
 
     <!-- Session / personalization -->
     <string name="hello_user">Hola, %1$s</string>
+    <string name="session_expired_title">Sesión expirada</string>
     <string name="session_expired">Sesión expirada, inicia sesión de nuevo</string>
 
     <!-- Location -->
     <string name="location_title">Ubicación</string>
     <string name="location_empty">Sin ubicación adjunta</string>
+    <string name="location_permission_blocked">Denegaste el permiso de ubicación de forma permanente. Actívalo en los ajustes para poder adjuntar tu ubicación.</string>
+    <string name="location_providers_off">La ubicación del dispositivo está desactivada. Actívala en los ajustes para poder obtener tu ubicación actual.</string>
+    <string name="open_settings">Abrir ajustes</string>
     <string name="btn_attach_location">AGREGAR UBICACIÓN ACTUAL</string>
     <string name="btn_clear_location">Quitar</string>
     <string name="location_searching">Obteniendo ubicación...</string>
@@ -66,7 +71,4 @@
     <!-- Sync -->
     <string name="saved_offline">Guardado sin conexión. Se sincronizará automáticamente.</string>
     <string name="sync_pending">Hay %d nota(s) pendientes de sincronizar</string>
-    <string name="sync_complete">Sincronización completada</string>
-    <string name="sync_error">Error al sincronizar. Se reintentará automáticamente.</string>
-    <string name="offline_mode">Modo offline</string>
 </resources>

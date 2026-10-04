@@ -3,13 +3,13 @@ package com.notes.mobile.ui.auth
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.notes.mobile.NotesApp
 import com.notes.mobile.R
 import com.notes.mobile.databinding.ActivityLoginBinding
 import com.notes.mobile.data.sync.SyncWorker
+import com.notes.mobile.ui.common.Dialogs
 import com.notes.mobile.ui.notes.NotesListActivity
 import kotlinx.coroutines.launch
 
@@ -37,15 +37,15 @@ class LoginActivity : AppCompatActivity() {
         }
 
         binding.btnLogin.setOnClickListener {
-            val username = binding.etUsername.text.toString().trim()
+            val email = binding.etEmail.text.toString().trim()
             val password = binding.etPassword.text.toString().trim()
 
-            if (username.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, getString(R.string.fill_fields), Toast.LENGTH_SHORT).show()
+            if (email.isEmpty() || password.isEmpty()) {
+                Dialogs.error(this, getString(R.string.fill_fields))
                 return@setOnClickListener
             }
 
-            loginUser(username, password)
+            loginUser(email, password)
         }
 
         binding.btnBack.setOnClickListener {
@@ -57,22 +57,23 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun loginUser(username: String, password: String) {
+    private fun loginUser(email: String, password: String) {
         binding.progressBar.visibility = android.view.View.VISIBLE
         binding.btnLogin.isEnabled = false
 
         lifecycleScope.launch {
-            val result = repository.login(username, password)
+            val result = repository.login(email, password)
             binding.progressBar.visibility = android.view.View.GONE
             binding.btnLogin.isEnabled = true
 
             result.onSuccess {
                 SyncWorker.schedulePeriodicSync(this@LoginActivity)
-                Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this@LoginActivity, NotesListActivity::class.java))
-                finish()
+                Dialogs.success(this@LoginActivity, getString(R.string.login_success)) {
+                    startActivity(Intent(this@LoginActivity, NotesListActivity::class.java))
+                    finish()
+                }
             }.onFailure { e ->
-                Toast.makeText(this@LoginActivity, e.message, Toast.LENGTH_SHORT).show()
+                Dialogs.error(this@LoginActivity, e.message)
             }
         }
     }

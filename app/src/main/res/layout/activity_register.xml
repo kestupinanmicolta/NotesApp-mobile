@@ -83,37 +83,6 @@
                 android:layout_marginBottom="32dp"
                 android:textAlignment="center" />
 
-            <!-- Username field -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_input_rounded"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="4dp"
-                android:layout_marginBottom="12dp">
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_person"
-                    android:layout_marginEnd="12dp" />
-
-                <EditText
-                    android:id="@+id/etUsername"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:background="@null"
-                    android:hint="@string/username"
-                    android:textColorHint="@color/textHint"
-                    android:textColor="@color/textPrimary"
-                    android:textSize="16sp"
-                    android:inputType="text"
-                    android:singleLine="true"
-                    android:layout_marginStart="4dp" />
-            </LinearLayout>
-
             <!-- Email field -->
             <LinearLayout
                 android:layout_width="match_parent"

@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -17,6 +16,7 @@ import com.notes.mobile.databinding.ActivityNotesListBinding
 import com.notes.mobile.ui.AppViewModelFactory
 import com.notes.mobile.ui.adapter.NotesAdapter
 import com.notes.mobile.ui.auth.LoginActivity
+import com.notes.mobile.ui.common.Dialogs
 import com.notes.mobile.ui.session.AuthState
 import com.notes.mobile.ui.session.SessionViewModel
 
@@ -63,6 +63,9 @@ class NotesListActivity : AppCompatActivity() {
                 intent.putExtra("note_id", note.id)
                 intent.putExtra("note_title", note.title)
                 intent.putExtra("note_content", note.content)
+                note.latitude?.let { intent.putExtra("note_latitude", it) }
+                note.longitude?.let { intent.putExtra("note_longitude", it) }
+                note.locationName?.let { intent.putExtra("note_location_name", it) }
                 startActivity(intent)
             },
             onDeleteClick = { note ->
@@ -100,7 +103,7 @@ class NotesListActivity : AppCompatActivity() {
             when (state) {
                 is AuthState.Authenticated -> {
                     binding.tvGreeting.text =
-                        getString(R.string.hello_user, state.username ?: "")
+                        getString(R.string.hello_user, state.email ?: "")
                 }
                 is AuthState.Unauthenticated -> goLogin()
             }
@@ -130,7 +133,7 @@ class NotesListActivity : AppCompatActivity() {
 
         notesViewModel.error.observe(this) { message ->
             if (message != null) {
-                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+                Dialogs.error(this, message)
                 notesViewModel.consumeError()
             }
         }
@@ -138,12 +141,13 @@ class NotesListActivity : AppCompatActivity() {
         notesViewModel.sessionExpired.observe(this) { expired ->
             if (expired) {
                 notesViewModel.consumeSessionExpired()
-                Toast.makeText(
+                Dialogs.show(
                     this,
                     getString(R.string.session_expired),
-                    Toast.LENGTH_SHORT
-                ).show()
-                sessionViewModel.logout()
+                    getString(R.string.session_expired_title)
+                ) {
+                    sessionViewModel.logout()
+                }
             }
         }
     }
@@ -171,7 +175,7 @@ class NotesListActivity : AppCompatActivity() {
     private fun deleteNote(note: NoteEntity) {
         notesViewModel.deleteNote(note.id)
         if (!SyncManager.isOnline(this)) {
-            Toast.makeText(this, getString(R.string.saved_offline), Toast.LENGTH_SHORT).show()
+            Dialogs.show(this, getString(R.string.saved_offline))
         }
     }
 

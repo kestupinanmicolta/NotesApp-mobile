@@ -30,6 +30,19 @@ class NotesAdapter(
             binding.tvContent.text = note.content
             binding.tvDate.text = note.updatedAt
 
+            val locationText = note.locationName
+                ?: if (note.latitude != null && note.longitude != null) {
+                    "%.5f, %.5f".format(note.latitude, note.longitude)
+                } else {
+                    null
+                }
+            if (locationText != null) {
+                binding.locationRow.visibility = android.view.View.VISIBLE
+                binding.tvLocation.text = locationText
+            } else {
+                binding.locationRow.visibility = android.view.View.GONE
+            }
+
             binding.root.setOnClickListener { onItemClick(note) }
             binding.btnDelete.setOnClickListener { onDeleteClick(note) }
         }

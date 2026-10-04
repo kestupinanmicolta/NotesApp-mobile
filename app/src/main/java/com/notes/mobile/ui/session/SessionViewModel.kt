@@ -12,7 +12,7 @@ import com.notes.mobile.data.sync.SyncWorker
 import kotlinx.coroutines.launch
 
 sealed interface AuthState {
-    data class Authenticated(val username: String?) : AuthState
+    data class Authenticated(val email: String?) : AuthState
     data object Unauthenticated : AuthState
 }
 
@@ -31,7 +31,7 @@ class SessionViewModel(
 
     fun loadSession() {
         _authState.value = if (ApiClient.isLoggedIn(appContext)) {
-            AuthState.Authenticated(ApiClient.getUsername(appContext))
+            AuthState.Authenticated(ApiClient.getEmail(appContext))
         } else {
             AuthState.Unauthenticated
         }

@@ -3,7 +3,6 @@ package com.notes.mobile.ui.notes
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -18,6 +17,7 @@ import com.notes.mobile.data.sync.SyncManager
 import com.notes.mobile.databinding.ActivityNoteDetailBinding
 import com.notes.mobile.ui.AppViewModelFactory
 import com.notes.mobile.ui.auth.LoginActivity
+import com.notes.mobile.ui.common.Dialogs
 import com.notes.mobile.ui.session.SessionViewModel
 import kotlinx.coroutines.launch
 
@@ -28,21 +28,21 @@ class NoteDetailActivity : AppCompatActivity() {
     private lateinit var sessionViewModel: SessionViewModel
     private var noteId: Long = 0
     private var isEditing = false
+    private var latitude: Double? = null
+    private var longitude: Double? = null
+    private var locationName: String? = null
 
     // Permiso de ubicacion: solo se solicita al pulsar "Agregar ubicacion"
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        markLocationAsked()
         if (granted) {
             fetchLocation()
         } else if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
             showLocationRationale()
         } else {
-            Toast.makeText(
-                this,
-                getString(R.string.permission_denied),
-                Toast.LENGTH_SHORT
-            ).show()
+            showPermissionBlockedDialog()
         }
     }
 
@@ -65,6 +65,11 @@ class NoteDetailActivity : AppCompatActivity() {
         noteId = intent.getLongExtra("note_id", 0)
         val title = intent.getStringExtra("note_title") ?: ""
         val content = intent.getStringExtra("note_content") ?: ""
+        if (intent.hasExtra("note_latitude") && intent.hasExtra("note_longitude")) {
+            latitude = intent.getDoubleExtra("note_latitude", Double.NaN).takeIf { !it.isNaN() }
+            longitude = intent.getDoubleExtra("note_longitude", Double.NaN).takeIf { !it.isNaN() }
+        }
+        locationName = intent.getStringExtra("note_location_name")
 
         if (noteId > 0) {
             isEditing = true
@@ -74,6 +79,7 @@ class NoteDetailActivity : AppCompatActivity() {
         } else {
             binding.toolbarTitle.text = getString(R.string.new_note)
         }
+        renderLocation()
 
         binding.btnBack.setOnClickListener {
             goHome()
@@ -84,24 +90,110 @@ class NoteDetailActivity : AppCompatActivity() {
         }
 
         binding.btnAttachLocation.setOnClickListener {
-            if (LocationHelper.hasPermission(this)) {
-                fetchLocation()
-            } else {
-                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-            }
+            onAttachLocationClicked()
         }
 
         binding.btnClearLocation.setOnClickListener {
             LocationHelper.cancelAll()
-            binding.tvLocation.text = getString(R.string.location_empty)
+            latitude = null
+            longitude = null
+            locationName = null
+            renderLocation()
+        }
+    }
+
+    private fun renderLocation() {
+        binding.tvLocation.text =
+            locationName
+                ?: if (latitude != null && longitude != null) {
+                    com.notes.mobile.data.location.GeocoderHelper.coordsText(latitude!!, longitude!!)
+                } else {
+                    getString(R.string.location_empty)
+                }
+    }
+
+    private fun onAttachLocationClicked() {
+        if (!LocationHelper.hasPermission(this)) {
+            // Sin permiso: si ya se pidió antes y no hay rationale, el sistema
+            // no volverá a mostrar el diálogo -> llevar a Ajustes.
+            if (wasLocationAsked() &&
+                !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)
+            ) {
+                showPermissionBlockedDialog()
+            } else {
+                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+            return
+        }
+        // Con permiso pero GPS/red desactivados a nivel sistema -> Ajustes de ubicación.
+        if (!LocationHelper.areProvidersEnabled(this)) {
+            showProvidersOffDialog()
+            return
+        }
+        fetchLocation()
+    }
+
+    private fun locationPrefs() =
+        getSharedPreferences("location_prefs", MODE_PRIVATE)
+
+    private fun wasLocationAsked(): Boolean =
+        locationPrefs().getBoolean("location_asked", false)
+
+    private fun markLocationAsked() {
+        locationPrefs().edit().putBoolean("location_asked", true).apply()
+    }
+
+    private fun showPermissionBlockedDialog() {
+        Dialogs.confirm(
+            this,
+            getString(R.string.location_permission_blocked),
+            getString(R.string.location_title),
+            getString(R.string.open_settings)
+        ) {
+            startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.fromParts("package", packageName, null)
+                )
+            )
+        }
+    }
+
+    private fun showProvidersOffDialog() {
+        Dialogs.confirm(
+            this,
+            getString(R.string.location_providers_off),
+            getString(R.string.location_title),
+            getString(R.string.open_settings)
+        ) {
+            startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         }
     }
 
     private fun fetchLocation() {
         binding.tvLocation.text = getString(R.string.location_searching)
-        LocationHelper.requestSingleFix(this) { coords ->
-            if (isFinishing) return@requestSingleFix
-            binding.tvLocation.text = coords ?: getString(R.string.location_unavailable)
+        LocationHelper.requestSingleCoords(this) { lat, lng ->
+            if (isFinishing) return@requestSingleCoords
+            if (lat != null && lng != null) {
+                latitude = lat
+                longitude = lng
+                locationName = null
+                renderLocation()
+                // Nombre legible (barrio/municipio) en segundo plano.
+                lifecycleScope.launch {
+                    val name =
+                        com.notes.mobile.data.location.GeocoderHelper.resolveName(
+                            this@NoteDetailActivity, lat, lng
+                        )
+                    if (isFinishing) return@launch
+                    if (name != null) {
+                        locationName = name
+                        renderLocation()
+                    }
+                }
+            } else {
+                binding.tvLocation.text = getString(R.string.location_unavailable)
+            }
         }
     }
 
@@ -131,7 +223,7 @@ class NoteDetailActivity : AppCompatActivity() {
         val content = binding.etContent.text.toString().trim()
 
         if (title.isEmpty()) {
-            Toast.makeText(this, getString(R.string.title_required), Toast.LENGTH_SHORT).show()
+            Dialogs.error(this, getString(R.string.title_required))
             return
         }
 
@@ -140,40 +232,33 @@ class NoteDetailActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val result = if (isEditing) {
-                repository.updateNote(noteId, title, content)
+                repository.updateNote(noteId, title, content, latitude, longitude, locationName)
             } else {
-                repository.createNote(title, content)
+                repository.createNote(title, content, latitude, longitude, locationName)
             }
 
             binding.btnSave.isEnabled = true
             binding.progressBar.visibility = android.view.View.GONE
 
             result.onSuccess {
-                if (!SyncManager.isOnline(this@NoteDetailActivity)) {
-                    Toast.makeText(
-                        this@NoteDetailActivity,
-                        getString(R.string.saved_offline),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                val message = if (!SyncManager.isOnline(this@NoteDetailActivity)) {
+                    getString(R.string.saved_offline)
                 } else {
-                    Toast.makeText(
-                        this@NoteDetailActivity,
-                        if (isEditing) getString(R.string.note_updated) else getString(R.string.note_saved),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    if (isEditing) getString(R.string.note_updated) else getString(R.string.note_saved)
                 }
-                goHome()
+                Dialogs.success(this@NoteDetailActivity, message) { goHome() }
             }.onFailure { e ->
                 if (e is SessionExpiredException) {
-                    Toast.makeText(
+                    Dialogs.show(
                         this@NoteDetailActivity,
                         getString(R.string.session_expired),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    sessionViewModel.logout()
-                    goLogin()
+                        getString(R.string.session_expired_title)
+                    ) {
+                        sessionViewModel.logout()
+                        goLogin()
+                    }
                 } else {
-                    Toast.makeText(this@NoteDetailActivity, e.message, Toast.LENGTH_SHORT).show()
+                    Dialogs.error(this@NoteDetailActivity, e.message)
                 }
             }
         }
